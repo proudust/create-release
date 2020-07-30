@@ -10,9 +10,18 @@ const run = require('../src/create-release.js');
 /* eslint-disable no-undef */
 describe('Create Release', () => {
   let createRelease;
+  let getReleaseByTag;
 
   beforeEach(() => {
     createRelease = jest.fn().mockReturnValueOnce({
+      data: {
+        id: 'releaseId',
+        html_url: 'htmlUrl',
+        upload_url: 'uploadUrl'
+      }
+    });
+    getReleaseByTag = jest.fn().mockReturnValueOnce({
+      status: 200,
       data: {
         id: 'releaseId',
         html_url: 'htmlUrl',
@@ -28,7 +37,8 @@ describe('Create Release', () => {
 
     const github = {
       repos: {
-        createRelease
+        createRelease,
+        getReleaseByTag
       }
     };
 
@@ -39,6 +49,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')
@@ -62,6 +73,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('true')
@@ -85,6 +97,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')
@@ -108,6 +121,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('') // <-- The default value for body in action.yml
       .mockReturnValueOnce('false')
@@ -127,10 +141,67 @@ describe('Create Release', () => {
     });
   });
 
+  test('If exist published release with the specified tag, not create release.', async () => {
+    core.getInput = jest
+      .fn()
+      .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce('myRelease')
+      .mockReturnValueOnce('') // <-- The default value for body in action.yml
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce(null);
+
+    await run();
+
+    expect(getReleaseByTag).toHaveBeenCalledWith({
+      owner: 'owner',
+      repo: 'repo',
+      tag: 'v1.0.0'
+    });
+    expect(createRelease).not.toHaveBeenCalled();
+  });
+
+  test('if not exist published release with the specified tag, create release.', async () => {
+    core.getInput = jest
+      .fn()
+      .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce('myRelease')
+      .mockReturnValueOnce('') // <-- The default value for body in action.yml
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce('false')
+      .mockReturnValueOnce(null);
+
+    getReleaseByTag.mockRestore();
+    getReleaseByTag.mockImplementation(() => {
+      throw new Error('Unhandled error: HttpError: Not Found');
+    });
+
+    await run();
+
+    expect(getReleaseByTag).toHaveBeenCalledWith({
+      owner: 'owner',
+      repo: 'repo',
+      tag: 'v1.0.0'
+    });
+    expect(createRelease).toHaveBeenCalledWith({
+      owner: 'owner',
+      repo: 'repo',
+      tag_name: 'v1.0.0',
+      name: 'myRelease',
+      body: '',
+      draft: false,
+      prerelease: false,
+      target_commitish: 'sha'
+    });
+  });
+
   test('Release body based on file', async () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('') // <-- The default value for body in action.yml
       .mockReturnValueOnce('false')
@@ -158,6 +229,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')
@@ -176,6 +248,7 @@ describe('Create Release', () => {
     core.getInput = jest
       .fn()
       .mockReturnValueOnce('refs/tags/v1.0.0')
+      .mockReturnValueOnce('true')
       .mockReturnValueOnce('myRelease')
       .mockReturnValueOnce('myBody')
       .mockReturnValueOnce('false')

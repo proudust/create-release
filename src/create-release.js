@@ -15,6 +15,27 @@ async function run() {
 
     // This removes the 'refs/tags' portion of the string, i.e. from 'refs/tags/v1.10.15' to 'v1.10.15'
     const tag = tagName.replace('refs/tags/', '');
+    const allowDuplicate = core.getInput('allow_duplicate', { required: false }) === 'true';
+
+    if (!allowDuplicate) {
+      try {
+        // Get a release by tag name
+        // API Documentation: https://developer.github.com/v3/repos/releases/#get-a-release-by-tag-name
+        // Octokit Documentation: https://octokit.github.io/rest.js/#repos-get-release-by-tag
+        const getReleaseByTagResponse = await github.repos.getReleaseByTag({ owner, repo, tag });
+        const {
+          data: { id: releaseId, html_url: htmlUrl, upload_url: uploadUrl }
+        } = getReleaseByTagResponse;
+
+        core.setOutput('id', releaseId);
+        core.setOutput('html_url', htmlUrl);
+        core.setOutput('upload_url', uploadUrl);
+        return;
+      } catch (_) {
+        // If no release is found, return to normal processing.
+      }
+    }
+
     const releaseName = core.getInput('release_name', { required: false }).replace('refs/tags/', '');
     const body = core.getInput('body', { required: false });
     const draft = core.getInput('draft', { required: false }) === 'true';
